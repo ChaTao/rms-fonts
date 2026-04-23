@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RMS Font Switcher
 // @namespace    https://chatao.github.io/rms-fonts/
-// @version      1.2.0
+// @version      1.3.0
 // @description  Live-Switcher fuer headbadge RMS Fonts auf beliebigen Seiten
 // @author       headbadge
 // @match        *://*/*
@@ -14,16 +14,17 @@
 (function () {
   'use strict';
   try { window.__RMS_FS_LOADED__ = true; } catch (e) {}
-  console.log('[RMS Font Switcher] v1.2.0 loaded on', location.href);
+  console.log('[RMS Font Switcher] v1.3.0 loaded on', location.href);
 
   const BODY_CLASS = 'rms-fs-active';
   const SLOTS = [
-    { key: 'title',  label: 'Title',  selector: '.is-size-huge, .is-size-1, .hero-title' },
-    { key: 'h1',     label: 'H1',     selector: 'h1' },
-    { key: 'h2',     label: 'H2',     selector: 'h2' },
-    { key: 'h3',     label: 'H3',     selector: 'h3' },
-    { key: 'teaser', label: 'Teaser', selector: '.teaser-headline, .card-headline, .kpi-figures__headline, .kpi-figures__subheadline, .nav-item-title, .accordion-header-title, .subtitle' },
-    { key: 'body',   label: 'Body',   selector: null },
+    { key: 'title',    label: 'Title',    selector: '.is-size-huge, .is-size-1, .hero-title' },
+    { key: 'h1',       label: 'H1',       selector: 'h1' },
+    { key: 'h2',       label: 'H2',       selector: 'h2' },
+    { key: 'h3',       label: 'H3',       selector: 'h3' },
+    { key: 'subtitle', label: 'Subtitle', selector: '.subtitle, .teaser-subtitle' },
+    { key: 'teaser',   label: 'Teaser',   selector: '.teaser-headline, .card-headline, .kpi-figures__headline, .kpi-figures__subheadline, .nav-item-title, .accordion-header-title' },
+    { key: 'body',     label: 'Body',     selector: null },
   ];
 
   const FONT_BASE = 'https://chatao.github.io/rms-fonts/fonts/';
