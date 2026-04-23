@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         RMS Font Switcher
 // @namespace    https://chatao.github.io/rms-fonts/
-// @version      1.0.0
+// @version      1.0.1
 // @description  Live-Switcher fuer headbadge RMS Fonts auf beliebigen Seiten
 // @author       headbadge
 // @match        *://*/*
+// @include      *
 // @run-at       document-end
 // @grant        none
 // @noframes
@@ -12,6 +13,8 @@
 
 (function () {
   'use strict';
+  try { window.__RMS_FS_LOADED__ = true; } catch (e) {}
+  console.log('[RMS Font Switcher] v1.0.1 loaded on', location.href);
 
   const FONT_BASE = 'https://chatao.github.io/rms-fonts/fonts/';
   const STORAGE_KEY = 'rms-font-switcher-v1';
