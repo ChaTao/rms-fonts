@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RMS Font Switcher
 // @namespace    https://chatao.github.io/rms-fonts/
-// @version      1.3.0
+// @version      1.4.0
 // @description  Live-Switcher fuer headbadge RMS Fonts auf beliebigen Seiten
 // @author       headbadge
 // @match        *://*/*
@@ -14,7 +14,12 @@
 (function () {
   'use strict';
   try { window.__RMS_FS_LOADED__ = true; } catch (e) {}
-  console.log('[RMS Font Switcher] v1.3.0 loaded on', location.href);
+  console.log('[RMS Font Switcher] v1.4.0 loaded on', location.href);
+
+  const WEIGHT_LABELS = {
+    100: 'Thin', 200: 'Extralight', 300: 'Light', 400: 'Regular',
+    500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Extrabold', 900: 'Black',
+  };
 
   const BODY_CLASS = 'rms-fs-active';
   const SLOTS = [
@@ -60,6 +65,25 @@
     },
   };
 
+  const VARIANTS = [{ value: 'system', label: 'Original', family: null, weight: null }];
+  Object.entries(FONTS).forEach(([key, font]) => {
+    if (!font.faces) return;
+    const weights = [...new Set(font.faces.filter((f) => f.style === 'normal').map((f) => f.weight))].sort((a, b) => a - b);
+    if (weights.length === 1) {
+      VARIANTS.push({ value: key, label: font.label, family: key, weight: weights[0] });
+    } else {
+      weights.forEach((w) => {
+        VARIANTS.push({
+          value: `${key}:${w}`,
+          label: `${font.label} — ${WEIGHT_LABELS[w] || w}`,
+          family: key,
+          weight: w,
+        });
+      });
+    }
+  });
+  const VARIANT_BY_VALUE = Object.fromEntries(VARIANTS.map((v) => [v.value, v]));
+
   const faceCss = Object.values(FONTS)
     .filter((f) => f.faces)
     .flatMap((f) =>
@@ -78,19 +102,28 @@
   overrideStyle.id = 'rms-fonts-override';
   document.head.appendChild(overrideStyle);
 
+  const declFor = (variant) => {
+    if (!variant || !variant.family) return null;
+    const font = FONTS[variant.family];
+    if (!font) return null;
+    let d = `font-family:'${font.family}' !important;`;
+    if (variant.weight) d += `font-weight:${variant.weight} !important;`;
+    return d;
+  };
+
   const applyOverride = (selection) => {
     const rules = [];
-    const bodyFont = FONTS[selection.body];
+    const bodyDecl = declFor(VARIANT_BY_VALUE[selection.body]);
 
-    if (bodyFont && bodyFont.family) {
-      rules.push(`body.${BODY_CLASS}{font-family:'${bodyFont.family}' !important;}`);
+    if (bodyDecl) {
+      rules.push(`body.${BODY_CLASS}{${bodyDecl}}`);
       rules.push(`body.${BODY_CLASS} *{font-family:inherit !important;}`);
     }
     SLOTS.forEach((slot) => {
       if (slot.key === 'body' || !slot.selector) return;
-      const font = FONTS[selection[slot.key]];
-      if (font && font.family) {
-        rules.push(`body.${BODY_CLASS} :is(${slot.selector}){font-family:'${font.family}' !important;}`);
+      const decl = declFor(VARIANT_BY_VALUE[selection[slot.key]]);
+      if (decl) {
+        rules.push(`body.${BODY_CLASS} :is(${slot.selector}){${decl}}`);
       }
     });
     overrideStyle.textContent = rules.join('\n');
@@ -102,7 +135,8 @@
   })();
   const selection = {};
   SLOTS.forEach((slot) => {
-    selection[slot.key] = FONTS[saved[slot.key]] ? saved[slot.key] : 'system';
+    const s = saved[slot.key];
+    selection[slot.key] = VARIANT_BY_VALUE[s] ? s : 'system';
   });
   applyOverride(selection);
 
@@ -111,7 +145,7 @@
     #rms-fs-panel{position:fixed;bottom:16px;right:16px;z-index:2147483647;font-family:-apple-system,system-ui,"Segoe UI",sans-serif !important;font-size:13px;color:#111;line-height:1.3;}
     #rms-fs-toggle{width:44px;height:44px;border-radius:22px;background:#111;color:#fff;border:none;cursor:pointer;font-weight:600;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.25);font-family:inherit !important;}
     #rms-fs-toggle:hover{background:#333;}
-    #rms-fs-controls{position:absolute;bottom:52px;right:0;background:#fff;padding:14px;border-radius:10px;min-width:240px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:10px;border:1px solid #e5e5e5;}
+    #rms-fs-controls{position:absolute;bottom:52px;right:0;background:#fff;padding:14px;border-radius:10px;min-width:280px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:10px;border:1px solid #e5e5e5;}
     #rms-fs-controls[hidden]{display:none;}
     #rms-fs-controls .rms-fs-row{display:flex;flex-direction:column;gap:4px;}
     #rms-fs-controls label{font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#555;}
@@ -164,10 +198,10 @@
     const selects = SLOTS.map((slot) => panel.querySelector(`#rms-fs-${slot.key}`));
 
     selects.forEach((sel) => {
-      Object.entries(FONTS).forEach(([key, { label }]) => {
+      VARIANTS.forEach((v) => {
         const opt = document.createElement('option');
-        opt.value = key;
-        opt.textContent = label;
+        opt.value = v.value;
+        opt.textContent = v.label;
         sel.appendChild(opt);
       });
       sel.value = selection[sel.dataset.target];
