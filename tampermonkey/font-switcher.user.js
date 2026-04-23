@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RMS Font Switcher
 // @namespace    https://chatao.github.io/rms-fonts/
-// @version      1.0.1
+// @version      1.1.0
 // @description  Live-Switcher fuer headbadge RMS Fonts auf beliebigen Seiten
 // @author       headbadge
 // @match        *://*/*
@@ -14,7 +14,10 @@
 (function () {
   'use strict';
   try { window.__RMS_FS_LOADED__ = true; } catch (e) {}
-  console.log('[RMS Font Switcher] v1.0.1 loaded on', location.href);
+  console.log('[RMS Font Switcher] v1.1.0 loaded on', location.href);
+
+  const TARGETS = ['h1', 'h2', 'h3', 'body'];
+  const TARGET_LABELS = { h1: 'H1', h2: 'H2', h3: 'H3', body: 'Body' };
 
   const FONT_BASE = 'https://chatao.github.io/rms-fonts/fonts/';
   const STORAGE_KEY = 'rms-font-switcher-v1';
@@ -67,22 +70,22 @@
   overrideStyle.id = 'rms-fonts-override';
   document.head.appendChild(overrideStyle);
 
-  const applyOverride = (bodyKey, headingKey) => {
-    const bodyFont = FONTS[bodyKey];
-    const headingFont = FONTS[headingKey];
+  const applyOverride = (selection) => {
     const rules = [];
+    const bodyFont = FONTS[selection.body];
 
     if (bodyFont && bodyFont.family) {
-      const bf = `'${bodyFont.family}'`;
-      rules.push(`body{font-family:${bf} !important;}`);
+      rules.push(`body{font-family:'${bodyFont.family}' !important;}`);
       rules.push(
-        `p,li,td,th,a,button,input,textarea,select,label,blockquote,figcaption,dd,dt,summary,caption,div,span{font-family:inherit !important;}`
+        `p,li,td,th,a,button,input,textarea,select,label,blockquote,figcaption,dd,dt,summary,caption,div,span,h4,h5,h6{font-family:inherit !important;}`
       );
     }
-    if (headingFont && headingFont.family) {
-      const hf = `'${headingFont.family}'`;
-      rules.push(`h1,h2,h3,h4,h5,h6{font-family:${hf} !important;}`);
-    }
+    ['h1', 'h2', 'h3'].forEach((tag) => {
+      const font = FONTS[selection[tag]];
+      if (font && font.family) {
+        rules.push(`${tag}{font-family:'${font.family}' !important;}`);
+      }
+    });
     overrideStyle.textContent = rules.join('\n');
   };
 
@@ -90,9 +93,11 @@
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
     catch { return {}; }
   })();
-  let bodyKey = FONTS[saved.body] ? saved.body : 'system';
-  let headingKey = FONTS[saved.heading] ? saved.heading : 'system';
-  applyOverride(bodyKey, headingKey);
+  const selection = {};
+  TARGETS.forEach((t) => {
+    selection[t] = FONTS[saved[t]] ? saved[t] : 'system';
+  });
+  applyOverride(selection);
 
   const uiStyle = document.createElement('style');
   uiStyle.textContent = `
@@ -115,6 +120,13 @@
 
   const panel = document.createElement('div');
   panel.id = 'rms-fs-panel';
+  const rowsHtml = TARGETS.map(
+    (t) => `
+      <div class="rms-fs-row">
+        <label for="rms-fs-${t}">${TARGET_LABELS[t]}</label>
+        <select id="rms-fs-${t}" data-target="${t}"></select>
+      </div>`
+  ).join('');
   panel.innerHTML = `
     <button id="rms-fs-toggle" title="RMS Font Switcher">Aa</button>
     <div id="rms-fs-controls" hidden>
@@ -122,14 +134,7 @@
         <strong>RMS Fonts</strong>
         <button id="rms-fs-close" aria-label="Schliessen">&times;</button>
       </div>
-      <div class="rms-fs-row">
-        <label for="rms-fs-body">Body</label>
-        <select id="rms-fs-body"></select>
-      </div>
-      <div class="rms-fs-row">
-        <label for="rms-fs-heading">Headings</label>
-        <select id="rms-fs-heading"></select>
-      </div>
+      ${rowsHtml}
       <div class="rms-fs-actions">
         <button id="rms-fs-reset">Zuruecksetzen</button>
       </div>
@@ -147,36 +152,36 @@
     const toggle = panel.querySelector('#rms-fs-toggle');
     const controls = panel.querySelector('#rms-fs-controls');
     const closeBtn = panel.querySelector('#rms-fs-close');
-    const bodySel = panel.querySelector('#rms-fs-body');
-    const headingSel = panel.querySelector('#rms-fs-heading');
     const resetBtn = panel.querySelector('#rms-fs-reset');
+    const selects = TARGETS.map((t) => panel.querySelector(`#rms-fs-${t}`));
 
-    Object.entries(FONTS).forEach(([key, { label }]) => {
-      [bodySel, headingSel].forEach((sel) => {
+    selects.forEach((sel) => {
+      Object.entries(FONTS).forEach(([key, { label }]) => {
         const opt = document.createElement('option');
         opt.value = key;
         opt.textContent = label;
         sel.appendChild(opt);
       });
+      sel.value = selection[sel.dataset.target];
     });
-    bodySel.value = bodyKey;
-    headingSel.value = headingKey;
 
     const persist = () => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ body: bodyKey, heading: headingKey })); }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selection)); }
       catch {}
-      applyOverride(bodyKey, headingKey);
+      applyOverride(selection);
     };
 
     toggle.addEventListener('click', () => { controls.hidden = !controls.hidden; });
     closeBtn.addEventListener('click', () => { controls.hidden = true; });
-    bodySel.addEventListener('change', (e) => { bodyKey = e.target.value; persist(); });
-    headingSel.addEventListener('change', (e) => { headingKey = e.target.value; persist(); });
+    selects.forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        selection[sel.dataset.target] = e.target.value;
+        persist();
+      });
+    });
     resetBtn.addEventListener('click', () => {
-      bodyKey = 'system';
-      headingKey = 'system';
-      bodySel.value = 'system';
-      headingSel.value = 'system';
+      TARGETS.forEach((t) => { selection[t] = 'system'; });
+      selects.forEach((sel) => { sel.value = 'system'; });
       persist();
     });
   }
