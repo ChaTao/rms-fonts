@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RMS Font Switcher
 // @namespace    https://chatao.github.io/rms-fonts/
-// @version      1.1.0
+// @version      1.2.0
 // @description  Live-Switcher fuer headbadge RMS Fonts auf beliebigen Seiten
 // @author       headbadge
 // @match        *://*/*
@@ -14,10 +14,17 @@
 (function () {
   'use strict';
   try { window.__RMS_FS_LOADED__ = true; } catch (e) {}
-  console.log('[RMS Font Switcher] v1.1.0 loaded on', location.href);
+  console.log('[RMS Font Switcher] v1.2.0 loaded on', location.href);
 
-  const TARGETS = ['h1', 'h2', 'h3', 'body'];
-  const TARGET_LABELS = { h1: 'H1', h2: 'H2', h3: 'H3', body: 'Body' };
+  const BODY_CLASS = 'rms-fs-active';
+  const SLOTS = [
+    { key: 'title',  label: 'Title',  selector: '.is-size-huge, .is-size-1, .hero-title' },
+    { key: 'h1',     label: 'H1',     selector: 'h1' },
+    { key: 'h2',     label: 'H2',     selector: 'h2' },
+    { key: 'h3',     label: 'H3',     selector: 'h3' },
+    { key: 'teaser', label: 'Teaser', selector: '.teaser-headline, .card-headline, .kpi-figures__headline, .kpi-figures__subheadline, .nav-item-title, .accordion-header-title, .subtitle' },
+    { key: 'body',   label: 'Body',   selector: null },
+  ];
 
   const FONT_BASE = 'https://chatao.github.io/rms-fonts/fonts/';
   const STORAGE_KEY = 'rms-font-switcher-v1';
@@ -75,15 +82,14 @@
     const bodyFont = FONTS[selection.body];
 
     if (bodyFont && bodyFont.family) {
-      rules.push(`body{font-family:'${bodyFont.family}' !important;}`);
-      rules.push(
-        `p,li,td,th,a,button,input,textarea,select,label,blockquote,figcaption,dd,dt,summary,caption,div,span,h4,h5,h6{font-family:inherit !important;}`
-      );
+      rules.push(`body.${BODY_CLASS}{font-family:'${bodyFont.family}' !important;}`);
+      rules.push(`body.${BODY_CLASS} *{font-family:inherit !important;}`);
     }
-    ['h1', 'h2', 'h3'].forEach((tag) => {
-      const font = FONTS[selection[tag]];
+    SLOTS.forEach((slot) => {
+      if (slot.key === 'body' || !slot.selector) return;
+      const font = FONTS[selection[slot.key]];
       if (font && font.family) {
-        rules.push(`${tag}{font-family:'${font.family}' !important;}`);
+        rules.push(`body.${BODY_CLASS} :is(${slot.selector}){font-family:'${font.family}' !important;}`);
       }
     });
     overrideStyle.textContent = rules.join('\n');
@@ -94,8 +100,8 @@
     catch { return {}; }
   })();
   const selection = {};
-  TARGETS.forEach((t) => {
-    selection[t] = FONTS[saved[t]] ? saved[t] : 'system';
+  SLOTS.forEach((slot) => {
+    selection[slot.key] = FONTS[saved[slot.key]] ? saved[slot.key] : 'system';
   });
   applyOverride(selection);
 
@@ -120,11 +126,11 @@
 
   const panel = document.createElement('div');
   panel.id = 'rms-fs-panel';
-  const rowsHtml = TARGETS.map(
-    (t) => `
+  const rowsHtml = SLOTS.map(
+    (slot) => `
       <div class="rms-fs-row">
-        <label for="rms-fs-${t}">${TARGET_LABELS[t]}</label>
-        <select id="rms-fs-${t}" data-target="${t}"></select>
+        <label for="rms-fs-${slot.key}">${slot.label}</label>
+        <select id="rms-fs-${slot.key}" data-target="${slot.key}"></select>
       </div>`
   ).join('');
   panel.innerHTML = `
@@ -143,6 +149,7 @@
 
   const mount = () => {
     if (!document.body) return requestAnimationFrame(mount);
+    document.body.classList.add(BODY_CLASS);
     document.body.appendChild(panel);
     init();
   };
@@ -153,7 +160,7 @@
     const controls = panel.querySelector('#rms-fs-controls');
     const closeBtn = panel.querySelector('#rms-fs-close');
     const resetBtn = panel.querySelector('#rms-fs-reset');
-    const selects = TARGETS.map((t) => panel.querySelector(`#rms-fs-${t}`));
+    const selects = SLOTS.map((slot) => panel.querySelector(`#rms-fs-${slot.key}`));
 
     selects.forEach((sel) => {
       Object.entries(FONTS).forEach(([key, { label }]) => {
@@ -180,7 +187,7 @@
       });
     });
     resetBtn.addEventListener('click', () => {
-      TARGETS.forEach((t) => { selection[t] = 'system'; });
+      SLOTS.forEach((slot) => { selection[slot.key] = 'system'; });
       selects.forEach((sel) => { sel.value = 'system'; });
       persist();
     });
