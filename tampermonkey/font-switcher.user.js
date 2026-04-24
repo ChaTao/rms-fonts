@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RMS Font Switcher
 // @namespace    https://chatao.github.io/rms-fonts/
-// @version      1.5.0
+// @version      1.6.0
 // @description  Live-Switcher fuer headbadge RMS Fonts auf beliebigen Seiten
 // @author       headbadge
 // @match        *://*/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
   try { window.__RMS_FS_LOADED__ = true; } catch (e) {}
-  console.log('[RMS Font Switcher] v1.5.0 loaded on', location.href);
+  console.log('[RMS Font Switcher] v1.6.0 loaded on', location.href);
 
   const WEIGHT_LABELS = {
     100: 'Thin', 200: 'Extralight', 300: 'Light', 400: 'Regular',
@@ -67,22 +67,31 @@
     },
   };
 
-  const VARIANTS = [{ value: 'system', label: 'Original', family: null, weight: null }];
+  const VARIANTS = [{ value: 'system', label: 'Original', family: null, weight: null, style: null }];
   Object.entries(FONTS).forEach(([key, font]) => {
     if (!font.faces) return;
-    const weights = [...new Set(font.faces.filter((f) => f.style === 'normal').map((f) => f.weight))].sort((a, b) => a - b);
-    if (weights.length === 1) {
-      VARIANTS.push({ value: key, label: font.label, family: key, weight: weights[0] });
-    } else {
-      weights.forEach((w) => {
+    const singleFace = font.faces.length === 1;
+    [...font.faces]
+      .sort((a, b) => a.weight - b.weight || (a.style === 'italic' ? 1 : -1))
+      .forEach((face) => {
+        const italic = face.style === 'italic';
+        const weightLabel = WEIGHT_LABELS[face.weight] || String(face.weight);
+        let suffix;
+        if (singleFace) suffix = null;
+        else if (italic && face.weight === 400) suffix = 'Italic';
+        else if (italic) suffix = `${weightLabel} Italic`;
+        else suffix = weightLabel;
+        const value = singleFace
+          ? key
+          : `${key}:${face.weight}${italic ? ':italic' : ''}`;
         VARIANTS.push({
-          value: `${key}:${w}`,
-          label: `${font.label} — ${WEIGHT_LABELS[w] || w}`,
+          value,
+          label: suffix ? `${font.label} — ${suffix}` : font.label,
           family: key,
-          weight: w,
+          weight: face.weight,
+          style: face.style,
         });
       });
-    }
   });
   const VARIANT_BY_VALUE = Object.fromEntries(VARIANTS.map((v) => [v.value, v]));
 
@@ -110,6 +119,7 @@
     if (!font) return null;
     let d = `font-family:'${font.family}' !important;`;
     if (variant.weight) d += `font-weight:${variant.weight} !important;`;
+    if (variant.style === 'italic') d += `font-style:italic !important;`;
     return d;
   };
 
